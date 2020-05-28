@@ -1,0 +1,18 @@
+[./goself]
+pid: 442613
+child 442617
+[initc loader]
+parent pid: 442613
+[_=442613]
+[local namespace] test 1 -> mkdir /tmp/vinicio/test1
+<nil>
+wait mount
+mount /tmp/vinicio
+[new namespace] test 2 -> mkdir /tmp/vinicio/test1
+<nil>
+[new namespace] test 3 -> mkdir /tmp/vinicio/test2
+<nil>
+[new namespace] test 4 -> ls /tmp/vinicio/
+ -  test1
+ -  test2
+pid 442617 exited true status 0
