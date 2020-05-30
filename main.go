@@ -187,7 +187,7 @@ func main() {
 	fmt.Println(os.Args)
 	fmt.Println(args)
 
-	handler = make(map[string] func(), 1)
+	handler = make(map[string] func(), 2)
 
 	handler["loader"]  = loader
 	handler["unshare"] = unshare
