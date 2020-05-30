@@ -171,7 +171,7 @@ func unshare() {
 		c <- true
 	}()
 
-	<-c  // 2
+	<-c
 
 	test(13, "/tmp/vinicio/test", "")
 }
@@ -199,9 +199,6 @@ print("python -> Goodbye, World!")
 
 	`
 
-	fmt.Println("     END ENGINE")
-	fmt.Println()
-
 	var e exec.Cmd
 	e.Path = "/proc/self/exe"
 	e.Args = []string{"init", "engine"}
@@ -211,6 +208,9 @@ print("python -> Goodbye, World!")
 	e.Stdin  = strings.NewReader(script)
 
 	e.Run()
+
+	fmt.Println("     END ENGINE")
+	fmt.Println()
 
 	test(11, "/tmp/vinicio/test", "")
 }
