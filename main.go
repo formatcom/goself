@@ -5,9 +5,7 @@ import (
 	"fmt"
 	"time"
 	"flag"
-	"strings"
 	"syscall"
-	"os/exec"
 	"io/ioutil"
 )
 
@@ -178,6 +176,7 @@ func unshare() {
 
 func fakeRequest() {
 	fmt.Println("     FAKE REQUEST", os.Getpid())
+	fmt.Println()
 
 	script := `
 
@@ -199,23 +198,30 @@ print("python -> Goodbye, World!")
 
 	`
 
-	var e exec.Cmd
-	e.Path = "/proc/self/exe"
-	e.Args = []string{"init", "engine"}
+	pid, _, err1 := syscall.RawSyscall(syscall.SYS_FORK, 0, 0, 0)
 
-	e.Stdout = os.Stdout
-	e.Stderr = os.Stderr
-	e.Stdin  = strings.NewReader(script)
+	if err1 != 0 {
+		os.Exit(2)
+	}
 
-	e.Run()
+	// parent
+	if pid != 0 {
+		process := os.Process{Pid: int(pid)}
+		process.Wait()
 
-	fmt.Println("     END ENGINE")
-	fmt.Println()
+		fmt.Println("     END ENGINE")
+		fmt.Println()
 
-	test(11, "/tmp/vinicio/test", "")
+		test(11, "/tmp/vinicio/test", "")
+		return
+	}
+
+	// child
+	engine(script)
+	os.Exit(0) // <- capture exitcode
 }
 
-func engine() {
+func engine(script string) {
 	fmt.Println("     ENGINE", os.Getpid())
 	fmt.Println()
 
@@ -242,21 +248,33 @@ func engine() {
 	fmt.Println("  mkdir /tmp/vinicio/test/vinicio")
 	fmt.Println("  err mkdir -> ", os.Mkdir("/tmp/vinicio/test/vinicio", 0755))
 
+
+	// script
+	f, _ := os.Create("/tmp/vinicio/test/in.out")
+	f.WriteString(script)
+	f.Close()
+
 	test(10, "/tmp/vinicio/test", "")
 
-	var e exec.Cmd
+	pid, err := syscall.ForkExec(
+		"/usr/bin/python3.7",
+		[]string{"self", "-B", "/tmp/vinicio/test/in.out"},
+		&syscall.ProcAttr{
+			Files: []uintptr{
+						0,
+						os.Stdout.Fd(),
+						os.Stderr.Fd(),
+			},
+		},
+	)
 
-	e.Path = "/usr/bin/python3.7"
-	e.Args = []string{"self", "-B", "-"}
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
 
-	e.Stdout = os.Stdout
-	e.Stderr = os.Stderr
-	e.Stdin  = os.Stdin
-
-	e.Run()
-	fmt.Println()
-
-	// move output here
+	process := os.Process{Pid: pid}
+	process.Wait()
 }
 
 
@@ -286,11 +304,10 @@ func main() {
 	fmt.Println(os.Args)
 	fmt.Println(args)
 
-	handler = make(map[string] func(), 3)
+	handler = make(map[string] func(), 2)
 
 	handler["loader"]  = loader
 	handler["unshare"] = unshare
-	handler["engine"]  = engine
 
 	if len(args) > 0 {
 		dispatch(args[0])
