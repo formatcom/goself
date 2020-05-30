@@ -5,6 +5,7 @@ import (
 	"os"
 	"time"
 	"syscall"
+	"os/exec"
 	"io/ioutil"
 )
 
@@ -13,6 +14,7 @@ import (
 // REF: http://man7.org/linux/man-pages/man2/unshare.2.html
 func main() {
 
+	fmt.Println("LOADER", os.Getpid())
 	fmt.Println(os.Args)
 
 	if len(os.Args) > 1 {
@@ -21,9 +23,28 @@ func main() {
 			os.Exit(1)
 		}
 
+		if os.Args[0] == "unshare" {
+			fmt.Println("[unshare] test 6 -> ls /tmp/vinicio/")
+			files, _ := ioutil.ReadDir("/tmp/vinicio")
+			for _, file := range files {
+				fmt.Println("test 6 - ", file.Name())
+			}
+
+			go func() {
+				fmt.Println("[unshare gorutine] test 7 -> ls /tmp/vinicio/")
+
+				files, _ := ioutil.ReadDir("/tmp/vinicio")
+				for _, file := range files {
+					fmt.Println("test 7 - ", file.Name())
+				}
+			}()
+			time.Sleep(5 * time.Minute)
+			os.Exit(0)
+		}
+
 		// Create session
 		// Evitar que muera el hijo si matan el padre
-		syscall.Setsid()
+		// syscall.Setsid()
 
 		fmt.Println("parent pid:", os.Getppid())
 		fmt.Println(os.Environ())
@@ -38,7 +59,7 @@ func main() {
 
 		fmt.Println("wait mount")
 
-		time.Sleep(1 * time.Minute)
+		time.Sleep(15 * time.Second)
 
 		fmt.Println("mount /tmp/vinicio")
 
@@ -63,12 +84,77 @@ func main() {
 		fmt.Println("[new namespace] test 3 -> mkdir /tmp/vinicio/test2")
 		fmt.Println(os.Mkdir("/tmp/vinicio/test2", 0755))
 
-		files, err := ioutil.ReadDir("/tmp/vinicio")
-
 		fmt.Println("[new namespace] test 4 -> ls /tmp/vinicio/")
+
+		files, _ := ioutil.ReadDir("/tmp/vinicio")
 		for _, file := range files {
-			fmt.Println(" - ", file.Name())
+			fmt.Println("test 4 - ", file.Name())
 		}
+
+		go func() {
+			fmt.Println("[gorutine] test 5 -> ls /tmp/vinicio/")
+
+			files, _ := ioutil.ReadDir("/tmp/vinicio")
+			for _, file := range files {
+				fmt.Println("test 5 - ", file.Name())
+			}
+		}()
+
+
+		fmt.Println(syscall.ForkExec(
+			"/proc/self/exe",
+			[]string{"unshare", "loader"},
+			&syscall.ProcAttr{
+				Env:   []string{
+							fmt.Sprintf("_=%d", os.Getpid()),
+				},
+				Files: []uintptr{
+							0,
+							os.Stdout.Fd(),
+							os.Stderr.Fd(),
+				},
+			},
+		))
+
+		/*
+		r1, _, err1 := syscall.RawSyscall(syscall.SYS_FORK, 0, 0, 0)
+		if err1 != 0 {
+			os.Exit(1)
+		}
+
+		// parent
+		if r1 != 0 {
+		}
+
+		// child
+		if r1 == 0 {
+			/*
+			pid := os.Getpid()
+			syscall.RawSyscall(syscall.SYS_SETPGID, 0, 0, 0)
+			syscall.RawSyscall(syscall.SYS_IOCTL, 0, uintptr(syscall.TIOCSPGRP), uintptr(unsafe.Pointer(&pid)))
+
+			fmt.Println("hola mundo")
+
+			go func() {
+				fmt.Println("hola mundo 2")
+			}()
+
+			//go func() {
+				fmt.Fprintln(os.Stdout, "[new namespace] test 6 -> ls /tmp/vinicio/")
+
+				files, _ := ioutil.ReadDir("/tmp/vinicio")
+				for _, file := range files {
+					fmt.Println("test 6 - ", file.Name())
+				}
+			//}()
+		}
+
+		//if r1 != 0 { return 0 }
+
+		/*
+		if r1 == 0 {
+
+		*/
 
 		time.Sleep(5 * time.Minute)
 		os.Exit(0)
@@ -77,6 +163,18 @@ func main() {
 
 	fmt.Println("pid:", os.Getpid())
 
+	cmd := exec.Cmd{
+		Path: os.Args[0],
+		Args: []string{"initc", "loader"},
+		Env:  []string{
+			 fmt.Sprintf("_=%d", os.Getpid()),
+		},
+		SysProcAttr: &syscall.SysProcAttr{Unshareflags: syscall.CLONE_NEWNS},
+		Stdout: os.Stdout,
+		Stderr: os.Stderr,
+	}
+	fmt.Println(cmd.Run())
+	/*
 	pid, err := syscall.ForkExec(
 		"/proc/self/exe",
 		[]string{"initc", "loader"},
@@ -132,5 +230,6 @@ func main() {
 	}()
 
 	<-c
+	*/
 
 }
