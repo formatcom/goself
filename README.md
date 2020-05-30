@@ -1,8 +1,11 @@
+~~~
 $ mkdir /tmp/vinicio
 $ sudo ./goself --help
 $ sudo ./goself --unshare --fork
+$ sudo umount /tmp/vinicio
+~~~
 
-
+~~~
 [./goself --unshare --fork]
 []
 INIT LOADER 195498
@@ -54,4 +57,4 @@ INIT LOADER 195498
         test 7 [with data goroutine] -> test1
         test 7 [with data goroutine] -> test2
         test 7 [with data goroutine] -> test4
-
+~~~
